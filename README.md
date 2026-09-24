@@ -823,7 +823,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org):
 > ⚠️ **Honest status:** the Kani harnesses in `contracts/ophirpay/spec/` verify hand-written
 > **models** — they share no code with the deployed `OphirPayContract`, are not run in CI, and
 > several are tautological. The list below reflects *modeled intent*, **not** proof of the deployed
-> contract. See [docs/AUDIT.md](docs/AUDIT.md) for details.
+> contract. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for the canonical specification and [docs/AUDIT.md](docs/AUDIT.md) for details.
 
 | # | Invariant | Status |
 |---|-----------|--------|

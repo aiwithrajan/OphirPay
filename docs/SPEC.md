@@ -235,6 +235,7 @@ cd contracts/emitter && cargo test                              # emitter unit t
 ## Future Verification Work
 
 - [x] Property testing with `proptest` for token-moving paths & reentrancy sequences (`LOCKED_BALANCE` conservation)
-- [ ] Bounded model checking with `kani` for the 5 highest-risk invariants
+- [x] Bounded model checking with `kani` for 10 modeled invariants (hand-written models decoupled from deployed contract; not run in CI — see [docs/VERIFICATION.md](VERIFICATION.md))
+- [ ] Real formal verification with `kani` exercising the deployed `OphirPayContract` directly (see [docs/VERIFICATION.md](VERIFICATION.md))
 - [ ] Formal verification of the `compute_vested()` function (overflow safety)
 - [ ] Third-party security audit before mainnet deployment
