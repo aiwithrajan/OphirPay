@@ -1,14 +1,17 @@
 "use client";
 // SPDX-License-Identifier: MIT
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   getAddressBook,
   saveAddress,
   removeAddress,
   searchAddressBook,
+  exportAddressBookToCsv,
+  importAddressBookCsv,
   type AddressEntry,
+  type AddressBookImportError,
 } from "@/lib/address-book";
 import { isValidStellarAddress } from "@/lib/stellar";
 import { shortenAddress, timeAgo } from "@/lib/utils";
@@ -51,12 +54,55 @@ export default function AddressBookPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AddressEntry | null>(null);
   const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<AddressBookImportError[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     return search.trim() ? searchAddressBook(search.trim()) : contacts;
   }, [contacts, search]);
 
   const refresh = () => setContacts(getAddressBook());
+
+  const handleExport = () => {
+    if (contacts.length === 0) {
+      toast.error("Address book is empty", "Add contacts before exporting.");
+      return;
+    }
+    exportAddressBookToCsv(contacts);
+    toast.success("Exported address book", `${contacts.length} contact(s) exported to CSV.`);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const result = importAddressBookCsv(text);
+      refresh();
+      setImportErrors(result.errors);
+      if (result.message) {
+        toast.info("Import notice", result.message);
+      } else if (result.savedCount > 0) {
+        toast.success(
+          "Import complete",
+          `Imported ${result.savedCount} contact(s)${
+            result.errors.length > 0 ? ` (${result.errors.length} skipped with errors)` : ""
+          }.`
+        );
+      } else if (result.errors.length > 0) {
+        toast.error(
+          "Import failed",
+          `All ${result.errors.length} row(s) had errors and could not be imported.`
+        );
+      }
+    } catch {
+      toast.error("Import error", "Could not read or parse the CSV file.");
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const openAdd = () => {
     setEditingOriginalKey(null);
@@ -130,10 +176,57 @@ export default function AddressBookPage() {
             Frequently used Stellar addresses — stored locally in your browser
           </p>
         </div>
-        <Button onClick={openAdd} leftIcon={<PlusIcon />}>
-          Add Contact
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            aria-label="Upload CSV file"
+          />
+          <Button
+            variant="secondary"
+            onClick={() => fileInputRef.current?.click()}
+            leftIcon={<UploadIcon />}
+          >
+            Import CSV
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExport}
+            disabled={contacts.length === 0}
+            leftIcon={<DownloadIcon />}
+          >
+            Export CSV
+          </Button>
+          <Button onClick={openAdd} leftIcon={<PlusIcon />}>
+            Add Contact
+          </Button>
+        </div>
       </div>
+
+      {/* CSV Import Error Banner */}
+      {importErrors.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-sm space-y-2">
+          <div className="flex items-center justify-between font-medium">
+            <span>CSV Import Warnings ({importErrors.length} row(s) skipped)</span>
+            <button
+              onClick={() => setImportErrors([])}
+              className="text-xs hover:underline text-amber-600 dark:text-amber-400"
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="list-disc list-inside text-xs space-y-0.5 max-h-32 overflow-y-auto">
+            {importErrors.map((err, i) => (
+              <li key={i}>
+                Row {err.row}: {err.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -334,3 +427,42 @@ function PlusIcon() {
     </svg>
   );
 }
+
+function UploadIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+      className="w-4 h-4"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+      />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+      className="w-4 h-4"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+      />
+    </svg>
+  );
+}
+
